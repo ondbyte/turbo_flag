@@ -1,13 +1,13 @@
 module github.com/ondbyte/flag
 
-go 1.19
-
-require github.com/eiannone/keyboard v0.0.0-20220611211555-0d226195f203
-
-require github.com/chzyer/readline v0.0.0-20180603132655-2972be24d48e // indirect
+go 1.18
 
 require (
-	github.com/manifoldco/promptui v0.9.0
-	golang.org/x/sys v0.0.0-20220520151302-bc2c85ada10a // indirect
-	gopkg.in/yaml.v2 v2.4.0
+	github.com/BurntSushi/toml v1.2.1
+	github.com/go-yaml/yaml v2.1.0+incompatible
+)
+
+require (
+	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
+	gopkg.in/yaml.v2 v2.4.0 // indirect
 )
