@@ -1,4 +1,4 @@
-module github.com/ondbyte/flag
+module github.com/ondbyte/turbo_flag
 
 go 1.18
 
