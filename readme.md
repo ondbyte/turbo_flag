@@ -1,6 +1,7 @@
  # turbo_flag
 
-a drop in replacement for flag package which is included in the core go, but with additional capabilties like loading values to flags from a configuration file, environement variable, enumeration of the values of the flag, sub commands, short alias for a flag etc.
+a drop in replacement for flag package which is included in the core go, but with additional capabilities like loading values to flags from a configuration file, environment variable, enumeration of the values of the flag, sub commands, short alias for a flag etc.
+
 **A wannabe viper or cobra alternative.**
  
 | NOTE: following functions/methods has been deprecated because they were not adding any value to the working of the core flag package:   |
@@ -47,7 +48,7 @@ password := fs.String("password", "", "")
 err = fs.LoadCfg("./test_config/demo.json")
 //pass the password ptr to BindCfg, use dot notation to access the value in the cfg
 err = fs.BindCfg(password, "database.password")
-fmt.Println(*dbPassword)
+fmt.Println(*password)
 //prints "12345"
 ```
 
@@ -58,19 +59,20 @@ fmt.Println(*dbPassword)
 | NOTE:   |
 | :------------ |
 |  *if you need to ignore flags suplied your program (i  e act like viper) dont call FlagSet.Parse(args) but rather call FlagSet.ParseWithoutArgs(args)*|
+
 **binding environment variables**
 ```go
 fs := flag.NewFlagSet("demo", flag.ExitOnError)
 //now to bind a flag to a ENV/s
 dbPassword:=fs.String("dbPassword","","the password usage") 
-err = fs.BindEnv(dbPassoword, "POSTGRES_PASSWORD", "DB_PASSWORD")
+err = fs.BindEnv(dbPassword, "POSTGRES_PASSWORD", "DB_PASSWORD")
 if err!=nil{
 	//failed to bind
 }
 //env's set are POSTGRES_PASSWORD=abc
 fmt.Println(*dbPassword)
 //prints "abc"
-```
+``` 
 **setting alias for flags**
 
 
@@ -88,7 +90,7 @@ fmt.Println(*dbPassword)
 fs := NewFlagSet("yourProgram", ContinueOnError)
 option := fs.String("option", "c", "")
 //its an error if the default value of a flag is not one of the enums
-err := fs.BindEnum(options, "a", "b", "c")
+err := fs.BindEnum(option, "a", "b", "c")
 //from the commandline  allowed values are
 //yourProgram -option a
 //yourProgram -option b
@@ -98,6 +100,10 @@ err := fs.BindEnum(options, "a", "b", "c")
 **Sub-commands**
 example: _a git program with commit and remote sub-commands_
 ```go
+var (
+	branchName = ""
+	remoteName = ""
+)
 func git() {
 	fs := flag.NewFlagSet("git", flag.ContinueOnError)
 	fs.SubCmd("commit", commit)
