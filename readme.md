@@ -64,7 +64,7 @@ fmt.Println(*password)
 
 | NOTE:   |
 | :------------ |
-|  *if you need to ignore flags suplied your program (i  e act like viper) dont call FlagSet.Parse(args) but rather call FlagSet.ParseWithoutArgs(args)*|
+|  *if you need to ignore flags suplied to your program (i  e act like viper) dont call FlagSet.Parse(args) but rather call FlagSet.ParseWithoutArgs(args)*|
 
 
 
