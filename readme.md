@@ -29,9 +29,9 @@ fs:=flag.NewFlagSet("demo",flag.ContinueOnError)
 help:=fs.Bool("help",false,"prints help")
 ```
 
-### what additional features it has over flag
+## what additional features it has over flag
 
-**loading configurations**
+### **loading configurations**
 
 lets load a file called demo.json having content
 ```json
@@ -60,7 +60,10 @@ fmt.Println(*password)
 | :------------ |
 |  *if you need to ignore flags suplied your program (i  e act like viper) dont call FlagSet.Parse(args) but rather call FlagSet.ParseWithoutArgs(args)*|
 
-**binding environment variables**
+### **generating configurtion file** (_your own git init_)
+
+
+### **binding environment variables**
 ```go
 fs := flag.NewFlagSet("demo", flag.ExitOnError)
 //now to bind a flag to a ENV/s
@@ -73,7 +76,7 @@ if err!=nil{
 fmt.Println(*dbPassword)
 //prints "abc"
 ``` 
-**setting alias for flags**
+### **setting alias for flags**
 
 
 ```go
@@ -85,7 +88,7 @@ err := fs.Alias(dbPassword, "p")
 fmt.Println(*dbPassword)
 //prints "xyz"
 ```
-**setting enums/options/allowed values for a flag**
+### **setting enums/options/allowed values for a flag**
 ```go
 fs := NewFlagSet("yourProgram", ContinueOnError)
 option := fs.String("option", "c", "")
@@ -97,7 +100,7 @@ err := fs.BindEnum(option, "a", "b", "c")
 //yourProgram -option c
 // otherwise its a error
 ```
-**Sub-commands**
+### **Sub-commands**
 example: _a git program with commit and remote sub-commands_
 ```go
 var (
