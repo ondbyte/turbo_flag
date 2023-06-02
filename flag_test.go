@@ -61,48 +61,6 @@ func Test_GetFirstSubCommandWithArgs(t *testing.T) {
 	}
 }
 
-func Test_CreateCfg(t *testing.T) {
-	path := "./test_config/created.json"
-	os.Remove(path)
-	fs := NewFlagSet("grand_parent", ContinueOnError)
-	exists, _ := fs.LoadCfg(path)
-	if exists {
-		t.Fatalf("expected %v file to not to exist", path)
-	}
-	name := fs.String("name", "<no-name>", "")
-	fs.BindCfg(name, "grandParent.name")
-	fs.SubCmd("parent", func(fs *FlagSet, args []string) {
-		fs.SubCmd("grand_son", func(fs *FlagSet, args []string) {
-			fs.BindCfg(fs.String("name", "<no-name>", ""), "grand_son.name")
-			fs.BindCfg(fs.Int("age", 0, ""), "grand_son.age")
-		})
-	})
-	fs.SubCmd("parent2", func(fs *FlagSet, args []string) {
-		fs.SubCmd("grand_son2", func(fs *FlagSet, args []string) {
-			fs.BindCfg(fs.String("name", "<no-name>", ""), "grand_son2.name")
-			fs.BindCfg(fs.Int("age", 0, ""), "grand_son2.age")
-		})
-	})
-	createdCfg := false
-	fs.SubCmd("init", func(fs *FlagSet, args []string) {
-		if exists {
-			t.Fatalf("expected cfg file [%v] to not exist", path)
-		}
-		err := fs.CreateCfg()
-		if err != nil {
-			t.Fatalf("unable to create cfg file %v due to %v", path, err)
-		}
-		createdCfg = true
-	})
-	err := fs.Parse([]string{"init"})
-	if err != nil {
-		t.Fatalf("expected no error but %v", err)
-	}
-	if !createdCfg {
-		t.Fatalf("expected createdCfg to be true")
-	}
-}
-
 func TestFlagSet_Parse(t *testing.T) {
 	type args struct {
 		arguments []string
@@ -224,8 +182,6 @@ func TestFlagSet_GetFlagForPtr(t *testing.T) {
 
 func TestFlagSet_BindCfg(t *testing.T) {
 	for _, ext := range []string{"json", "yaml", "yml", "toml"} {
-		fs := NewFlagSet("test", ContinueOnError)
-		password := fs.String("password", "", "")
 		defer func() {
 			err := recover()
 			if err != nil {
@@ -233,10 +189,12 @@ func TestFlagSet_BindCfg(t *testing.T) {
 			}
 		}()
 		path := "./test_config/demo." + ext
+		fs := NewFlagSet("test", ContinueOnError)
 		exists, _ := fs.LoadCfg(path)
 		if !exists {
 			t.Fatalf("cfg [%v] file should exist", path)
 		}
+		password := fs.String("password", "", "")
 
 		if *password != "" {
 			t.Fatal("expected password to be empty")

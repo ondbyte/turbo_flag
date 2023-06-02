@@ -60,7 +60,6 @@ fmt.Println(*password)
 | :------------ |
 |  *if you need to ignore flags suplied your program (i  e act like viper) dont call FlagSet.Parse(args) but rather call FlagSet.ParseWithoutArgs(args)*|
 
-### **generating configurtion file** (_your own git init_)
 
 
 ### **binding environment variables**
