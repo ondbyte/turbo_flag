@@ -204,7 +204,7 @@ func stringMap(inputMap interface{}) (map[string]interface{}, error) {
 	return outputMap, nil
 }
 
-func addValueByDotNotation(data map[string]interface{}, notation string, value interface{}) (map[string]interface{}, error) {
+func setValueByDotNotation(data map[string]interface{}, notation string, value interface{}) (map[string]interface{}, error) {
 	current, err := stringMap(data)
 	lastData := current
 	if err != nil {

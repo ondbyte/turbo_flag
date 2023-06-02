@@ -622,7 +622,12 @@ func (f *FlagSet) varErr(value Value, name string, usage string) (*Flag, error) 
 	return flag, nil
 }
 
-type subCommandRunner = func(args []string)
+type subCommandRunner = func(fs *FlagSet, args []string)
+
+type subCommand struct {
+	fn subCommandRunner
+	fs *FlagSet
+}
 
 // A FlagSet represents a set of defined flags. The zero value of a FlagSet
 // has no name and has ContinueOnError error handling.
@@ -648,7 +653,8 @@ type FlagSet struct {
 	output        io.Writer // Deprecated: nil means stderr; use Output() accessor
 	cfgPath       string
 	cfg           map[string]interface{}
-	subCmds       map[string]subCommandRunner
+	subCmds       map[string]*subCommand
+	parentCmd     *FlagSet
 }
 
 // sortFlags returns the flags as a slice in lexicographical sorted order.
@@ -1070,11 +1076,11 @@ func (f *FlagSet) ParseWithoutArgs(args []string) error {
 	// it is possible that user is trying run a sub-command
 	subCmdName, subCmdArgs, ok := GetFirstSubCommandWithArgs(args)
 	if ok {
-		fn, ok := f.subCmds[subCmdName]
+		sc, ok := f.subCmds[subCmdName]
 		if !ok {
 			return fmt.Errorf("you are trying to run subcommand with name %v but it doesn't exist", subCmdName)
 		}
-		fn(subCmdArgs)
+		sc.fn(sc.fs, subCmdArgs)
 	}
 	return nil
 }
@@ -1160,8 +1166,9 @@ func NewFlagSet(name string, errorHandling ErrorHandling) *FlagSet {
 	f := &FlagSet{
 		name:          name,
 		errorHandling: errorHandling,
-		subCmds:       make(map[string]func(args []string)),
+		subCmds:       make(map[string]*subCommand),
 		ptrs:          make(map[string]*Flag),
+		cfg:           make(map[string]interface{}),
 	}
 	f.Usage = func() {
 		panic("Deprecated")
@@ -1177,21 +1184,25 @@ func (f *FlagSet) Init(name string, errorHandling ErrorHandling) {
 	f.errorHandling = errorHandling
 }
 
-func (fs *FlagSet) LoadCfg(path string) error {
+func (fs *FlagSet) LoadCfg(path string) (exists bool, err error) {
+	if fs.parentCmd != nil {
+		return fs.parentCmd.LoadCfg(path)
+	}
 	if path == "" {
-		return fmt.Errorf("path is empty while loading config")
+		return false, fmt.Errorf("path is empty while loading config")
 	}
 
+	fs.cfgPath = path
 	b, err := os.ReadFile(path)
 	if err != nil {
-		return fmt.Errorf("failed to read config file at %v : %v", path, err)
+		return false, fmt.Errorf("failed to read config file at %v : %v", path, err)
 	}
 	fileContent := string(b)
 	mapContent := make(map[string]interface{})
 	ext := strings.ToUpper(filepath.Ext(path))
 	switch ext {
 	case "":
-		return fmt.Errorf("config file has no extension, add a supported extension [YAML,YML,JSON,PROPERTIES]")
+		return false, fmt.Errorf("config file has no extension, add a supported extension [YAML,YML,JSON,PROPERTIES]")
 	case ".JSON":
 		mapContent, err = JSONToMap(fileContent)
 		break
@@ -1202,17 +1213,32 @@ func (fs *FlagSet) LoadCfg(path string) error {
 		mapContent, err = TOMLToMap(fileContent)
 		break
 	default:
-		return fmt.Errorf("unsupported extension %v", ext)
+		return false, fmt.Errorf("unsupported extension %v", ext)
 	}
 	if err != nil {
-		return fmt.Errorf("unable to read config file : %v", err)
+		return false, fmt.Errorf("unable to read config file : %v", err)
 	}
 	fs.cfg = mapContent
-	fs.cfgPath = path
-	return nil
+	bindCfgRecursiveAfterLoadCfg(fs)
+	return true, nil
 }
 
+func bindCfgRecursiveAfterLoadCfg(fs *FlagSet) {
+	for _, sc := range fs.subCmds {
+		bindCfgRecursiveAfterLoadCfg(sc.fs)
+	}
+	for _, flag := range fs.formal {
+		fs.bindCfg(flag, keys(flag.cfgs)...)
+	}
+}
+
+//creates the cfg file you passed for LoadCfg method if it doesnt exists
+//this is useful in creating the default config file a user can edit
+//content of the file depends the values you bound using BindCfg
 func (fs *FlagSet) CreateCfg() error {
+	if fs.parentCmd != nil {
+		return fs.parentCmd.CreateCfg()
+	}
 	if fs.cfgPath == "" {
 		return fmt.Errorf(
 			fmt.Sprint(
@@ -1233,11 +1259,7 @@ func (fs *FlagSet) CreateCfg() error {
 			return fmt.Errorf("unable to create config file : %v", err)
 		}
 		mapContent := make(map[string]interface{})
-		for _, flag := range fs.formal {
-			for notation := range flag.cfgs {
-				addValueByDotNotation(mapContent, notation, flag.Value)
-			}
-		}
+		mapContent = createConfigContent(fs, mapContent)
 		fileContent := ""
 		switch strings.ToUpper(filepath.Ext(fs.cfgPath)) {
 		case ".JSON":
@@ -1257,7 +1279,6 @@ func (fs *FlagSet) CreateCfg() error {
 		if err != nil {
 			return fmt.Errorf("unable to write config file while creating config file : %v", err)
 		}
-		fmt.Printf("successfully created config file : %v\n", fs.cfgPath)
 	} else {
 		return fmt.Errorf("failed creating config file : %v", err)
 	}
@@ -1265,89 +1286,137 @@ func (fs *FlagSet) CreateCfg() error {
 	return nil
 }
 
-func (fs *FlagSet) SubCmd(name string, fn subCommandRunner) {
-	fs.subCmds[name] = fn
+func createConfigContent(fs *FlagSet, mapContent map[string]interface{}) map[string]interface{} {
+	for _, sc := range fs.subCmds {
+		mapContent = createConfigContent(sc.fs, mapContent)
+	}
+	for _, flag := range fs.formal {
+		for notation := range flag.cfgs {
+			mc, err := setValueByDotNotation(mapContent, notation, flag.Value)
+			if err == nil {
+				mapContent = mc
+			}
+
+		}
+	}
+	return mapContent
 }
 
+// adds a new sub flagset to the parent flagset, loads the config file if it exists in the parent
+// the sub command fn recieves the new FlagSet and the arguments thats for the sub command
+// you can add new flags to this sub flagset and call fs.Parse with the arguments you recieved in this function
+func (fs *FlagSet) SubCmd(name string, fn subCommandRunner) {
+	subFs := NewFlagSet(name, fs.errorHandling)
+	//subFs.LoadCfg(fs.cfgPath)
+	subFs.cfgPath = fs.cfgPath
+	subFs.cfg = fs.cfg
+	subFs.parentCmd = fs
+	fs.subCmds[name] = &subCommand{
+		fn: fn,
+		fs: subFs,
+	}
+}
+
+// bind enums to the flag, if you do this only entries in the enums will be the possible values for that flag
+// https://github.com/ondbyte/turbo_flag#setting-enumsoptionsallowed-values-for-a-flag
 func (fs *FlagSet) BindEnum(to any, enums ...string) {
 	ff, err := fs.GetFlagForPtr(to)
 	if err != nil {
 		panic(err)
 	}
-	if !isEnumValid(ff.DefValue, enums) {
-		panic(fmt.Errorf("you are trying to add enum feature to flag name [%v] but the default value of the flag is %v, default value should be one of the value from enums %v", ff.Name, ff.DefValue, enums))
+	fs.bindEnum(ff, enums...)
+}
+func (fs *FlagSet) bindEnum(to *Flag, enums ...string) {
+	if !isEnumValid(to.DefValue, enums) {
+		panic(fmt.Errorf("you are trying to add enum feature to flag name [%v] but the default value of the flag is %v, default value should be one of the value from enums %v", to.Name, to.DefValue, enums))
 	}
 	for _, enum := range enums {
-		ff.enums[enum] = true
+		to.enums[enum] = true
 	}
 }
 
+// binds flag/s with names to the to flag, useful in adding short flags (bind flag help to flag h),
+// every property of the flag will be copied.
+// https://github.com/ondbyte/turbo_flag#setting-alias-for-a-flag
 func (fs *FlagSet) Alias(to any, names ...string) {
 	ff, err := fs.GetFlagForPtr(to)
 	if err != nil {
 		panic(err)
 	}
+	fs.alias(ff, names...)
+}
+
+func (fs *FlagSet) alias(to *Flag, names ...string) {
 	for _, name := range names {
-		if name == ff.Name {
+		if name == to.Name {
 			panic(fmt.Sprintf("cannot add alias to the flag with the same name %v", name))
 		}
-		f, err := fs.varErr(ff.Value, name, ff.Usage)
+		f, err := fs.varErr(to.Value, name, to.Usage)
 		if err != nil {
-			panic(fmt.Sprintf("error while adding enums to the flag %v to flag %v : %v", name, ff.Name, err))
+			panic(fmt.Sprintf("error while adding enums to the flag %v to flag %v : %v", name, to.Name, err))
 		}
-		f.envs = ff.envs
-		f.cfgs = ff.cfgs
-		f.enums = ff.enums
-		for k, v := range ff.alias {
+		f.envs = to.envs
+		f.cfgs = to.cfgs
+		f.enums = to.enums
+		for k, v := range to.alias {
 			f.alias[k] = v
 		}
-		ff.alias[f.Name] = true
-		f.alias[ff.Name] = true
+		to.alias[f.Name] = true
+		f.alias[to.Name] = true
 	}
 }
 
+// binds configurations value from config file to the to flag,
+// use dot notation of the config key to bind.
+// https://github.com/ondbyte/turbo_flag#loading-configurations
 func (fs *FlagSet) BindCfg(to any, cfgs ...string) {
 	ff, err := fs.GetFlagForPtr(to)
 	if err != nil {
 		panic(err)
 	}
-	if fs.cfg == nil {
-		panic(fmt.Errorf(fmt.Sprint(`you are binding the flag `,
-			ff.Name,
-			` to config notation/s `,
-			cfgs,
-			` but you've not loaded any config file, load the config using flag.Config feature while calling the flag.NewFlagSet`,
-			` example:`,
-			"\n\n",
-			` fs := NewFlagSet("example", ExitOnError, Config("./awesome.json"))`,
-			"\n\n")))
-	}
+	fs.bindCfg(ff, cfgs...)
+}
+
+func (fs *FlagSet) bindCfg(to *Flag, cfgs ...string) {
 	for _, notation := range cfgs {
 		val, err := getValueByDotNotation(fs.cfg, notation)
-		if err == nil {
-			err := ff.Set(val)
+		if err == nil && val != "" {
+			err := to.Set(val)
 			if err != nil {
-				panic(fmt.Errorf("unable to set notation %v value %v to flag %v", notation, val, ff.Name))
+				panic(fmt.Errorf("unable to set notation %v value %v to flag %v", notation, val, to.Name))
+			}
+		} else {
+			cs, err := setValueByDotNotation(fs.cfg, notation, to.Value.String())
+			if err == nil {
+				for k, v := range cs {
+					fs.cfg[k] = v
+				}
 			}
 		}
 	}
 	for _, cfg := range cfgs {
-		ff.cfgs[cfg] = true
+		to.cfgs[cfg] = true
 	}
 }
 
+// binds env/s to the to flag
+// https://github.com/ondbyte/turbo_flag#binding-environment-variables
 func (fs *FlagSet) BindEnv(to interface{}, envs ...string) {
 	ff, err := fs.GetFlagForPtr(to)
 	if err != nil {
 		panic(err)
 	}
+	fs.bindEnv(ff, envs...)
+}
+
+func (fs *FlagSet) bindEnv(to *Flag, envs ...string) {
 	for _, env := range envs {
-		ff.envs[env] = true
+		to.envs[env] = true
 		val := os.Getenv(env)
 		if val != "" {
-			err := ff.Set(val)
+			err := to.Set(val)
 			if err != nil {
-				panic(fmt.Errorf("error while setting value from environment, flag name %v,env %v,value %v : %v", ff.Name, env, val, err))
+				panic(fmt.Errorf("error while setting value from environment, flag name %v,env %v,value %v : %v", to.Name, env, val, err))
 			}
 		}
 	}

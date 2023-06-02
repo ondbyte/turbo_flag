@@ -321,7 +321,7 @@ func TestAddValueByDotNotation(t *testing.T) {
 			"bar": "baz",
 		},
 	}
-	data, err := addValueByDotNotation(data, "hello.another.key", true)
+	data, err := setValueByDotNotation(data, "hello.another.key", true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -330,7 +330,7 @@ func TestAddValueByDotNotation(t *testing.T) {
 		t.Errorf("failed to get value : %v", err)
 	}
 
-	data, err = addValueByDotNotation(data, "foo.qux", "value")
+	data, err = setValueByDotNotation(data, "foo.qux", "value")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -339,7 +339,7 @@ func TestAddValueByDotNotation(t *testing.T) {
 		t.Errorf("failed to get value : %v", err)
 	}
 
-	data, err = addValueByDotNotation(data, "hello.world", 123)
+	data, err = setValueByDotNotation(data, "hello.world", 123)
 	if err != nil {
 		t.Fatal(err)
 	}

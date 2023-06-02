@@ -76,9 +76,8 @@ if err!=nil{
 fmt.Println(*dbPassword)
 //prints "abc"
 ``` 
-### **setting alias for flags**
-
-
+### **setting alias for a flag**
+useful for adding a short flag for another flag
 ```go
 fs := flag.NewFlagSet("demo", flag.ExitOnError)
 dbPassword:=fs.String("dbPassword","","the password usage string")
@@ -107,6 +106,11 @@ var (
 	branchName = ""
 	remoteName = ""
 )
+
+func main(){
+    git()
+}
+
 func git() {
 	fs := flag.NewFlagSet("git", flag.ContinueOnError)
 	fs.SubCmd("commit", commit)
@@ -129,8 +133,7 @@ func git() {
 	}
 }
 
-func commit(args []string) {
-	fs := flag.NewFlagSet("commit", flag.ContinueOnError)
+func commit(fs *flag.FlagSet, args []string) {
 	var branch string
 	fs.StringVar(&branch, "branch", "", "")
 	fs.Alias(&branch, "b")
@@ -141,8 +144,7 @@ func commit(args []string) {
 	branchName = branch
 }
 
-func remote(args []string) {
-	fs := flag.NewFlagSet("remote", flag.ContinueOnError)
+func remote(fs *flag.FlagSet, args []string) {
 	var name string
 	fs.StringVar(&name, "name", "", "")
 	fs.Alias(&name, "n")
