@@ -148,18 +148,16 @@ func TestFlagSet_BindEnv(t *testing.T) {
 	os.Setenv("PORT", "3555")
 	os.Setenv("YES", "TRUE")
 	fs := NewFlagSet("test", ContinueOnError)
-	name := fs.String("str", "", "")
-	port := fs.Int("port", 0, "")
-	yes := fs.Bool("yes", false, "")
+	name := fs.String("str", "", "", fs.Env("YADU"))
+	port := fs.Int("port", 0, "", fs.Env("PORT"))
+	yes := fs.Bool("yes", false, "", fs.Env("YES"))
 	defer func() {
 		err := recover()
 		if err != nil {
 			t.Fatalf("ecpected error to be nil %v", err)
 		}
 	}()
-	fs.BindEnv(name, "YADU")
-	fs.BindEnv(port, "PORT")
-	fs.BindEnv(yes, "YES")
+
 	if *name != "123" {
 		t.Fatal("name should have the value")
 	}
@@ -168,15 +166,6 @@ func TestFlagSet_BindEnv(t *testing.T) {
 	}
 	if !*yes {
 		t.Fatal("yes should have the value")
-	}
-}
-
-func TestFlagSet_GetFlagForPtr(t *testing.T) {
-	fs := NewFlagSet("test", ContinueOnError)
-	v := fs.String("yes", "", " ")
-	f, err := fs.GetFlagForPtr(v)
-	if err != nil || f == nil {
-		t.Fatal("failed to get flag")
 	}
 }
 
@@ -194,12 +183,7 @@ func TestFlagSet_BindCfg(t *testing.T) {
 		if !exists {
 			t.Fatalf("cfg [%v] file should exist", path)
 		}
-		password := fs.String("password", "", "")
-
-		if *password != "" {
-			t.Fatal("expected password to be empty")
-		}
-		fs.BindCfg(password, "database.password")
+		password := fs.String("password", "", "", fs.Cfg("database.password"))
 
 		if *password != "12345" {
 			t.Fatal("expected password to be 12345")
@@ -207,7 +191,7 @@ func TestFlagSet_BindCfg(t *testing.T) {
 	}
 	for _, ext := range []string{"json22", "yam2l", "ym2l", "tom2l"} {
 		fs := NewFlagSet("test", ContinueOnError)
-		password := fs.String("password", "", "")
+		password := fs.String("password", "", "", fs.Cfg("database.password"))
 		defer func() {
 			err := recover()
 			if err != nil {
@@ -221,9 +205,8 @@ func TestFlagSet_BindCfg(t *testing.T) {
 		}
 
 		if *password != "" {
-			t.Fatal("expected password to be empty")
+			t.Fatalf("expected password to be empty but %v", *password)
 		}
-		fs.BindCfg(password, "database.password")
 
 		if *password != "" {
 			t.Fatal("expected password to be empty")
@@ -233,14 +216,14 @@ func TestFlagSet_BindCfg(t *testing.T) {
 
 func TestFlagSet_Alias(t *testing.T) {
 	fs := NewFlagSet("test", ContinueOnError)
-	password := fs.String("password", "", "")
+	password := fs.String("password", "", "", fs.Alias("p"))
 	defer func() {
 		err := recover()
 		if err != nil {
 			t.Fatalf("ecpected error to be nil %v", err)
 		}
 	}()
-	fs.Alias(password, "p")
+
 	err := fs.Parse([]string{"-p", "12345"})
 	if err != nil {
 		t.Fatal("expected no error")
@@ -252,19 +235,15 @@ func TestFlagSet_Alias(t *testing.T) {
 
 func TestFlagSet_Enums(t *testing.T) {
 	fs := NewFlagSet("test", ContinueOnError)
-	password := fs.String("password", "12345", "")
+	password := fs.String("password", "12345", "", fs.Enum("12345", "123456789"))
 	defer func() {
 		err := recover()
 		if err != nil {
 			t.Fatalf("ecpected error to be nil %v", err)
 		}
 	}()
-	fs.BindEnum(password, "12345", "123456789")
-	options := fs.String("options", "c", "")
-	fs.BindEnum(options, "a", "b", "c")
-	fs.Alias(options, "o")
 
-	fs.BindEnv(options, "OPTIONS", "OPTIONS2")
+	options := fs.String("options", "c", "", fs.Enum("a", "b", "c"), fs.Alias("o"), fs.Env("OPTIONS", "OPTIONS2"))
 
 	err := fs.Parse([]string{"-options", "z"})
 	if err == nil {
@@ -274,8 +253,11 @@ func TestFlagSet_Enums(t *testing.T) {
 	if err != nil {
 		t.Fatal("expected no error")
 	}
-	if *options != "a" {
+	if *password != "12345" {
 		t.Fatal("expected password to be 12345")
+	}
+	if *options != "a" {
+		t.Fatal("expected option to be a")
 	}
 }
 
