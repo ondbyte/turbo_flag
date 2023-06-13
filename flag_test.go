@@ -75,7 +75,7 @@ func TestFlagSet_Parse(t *testing.T) {
 			name: "first",
 			fs: func() *FlagSet {
 				fs := NewFlagSet("first", ContinueOnError)
-				fs.SubCmd("yadu", func(fs *FlagSet, args []string) {})
+				fs.SubCmdFs("yadu", func(fs *FlagSet, args []string) {})
 				fs.String("yadu", "", "")
 				fs.String("yes", "", "")
 				return fs
@@ -109,13 +109,13 @@ func TestFlagSet_Parse(t *testing.T) {
 	}
 }
 
-func TestNestedSubCMDRunsWithValidArgs(t *testing.T) {
+func TestNestedSubCmdFsRunsWithValidArgs(t *testing.T) {
 	arg := make([]string, 0)
 	arg2 := make([]string, 0)
 	fs := NewFlagSet("first", ContinueOnError)
-	fs.SubCmd("yadu", func(fs2 *FlagSet, args []string) {
+	fs.SubCmdFs("yadu", func(fs2 *FlagSet, args []string) {
 		arg = args
-		fs2.SubCmd("nandan", func(fs *FlagSet, args []string) {
+		fs2.SubCmdFs("nandan", func(fs *FlagSet, args []string) {
 			arg2 = args
 		})
 
@@ -601,7 +601,7 @@ func TestChangingArgs(t *testing.T) {
 	ResetForTesting()
 	oldArgs := os.Args
 	defer func() { os.Args = oldArgs }()
-	os.Args = []string{"cmd", "-before", "subcmd", "-after", "args"}
+	os.Args = []string{"cmd", "-before", "SubCmdFs", "-after", "args"}
 	before := Bool("before", false, "")
 	if err := CommandLine.Parse(os.Args[1:]); err != nil {
 		t.Fatal(err)
@@ -612,8 +612,8 @@ func TestChangingArgs(t *testing.T) {
 	Parse()
 	args := Args()
 
-	if !*before || cmd != "subcmd" || !*after || len(args) != 1 || args[0] != "args" {
-		t.Fatalf("expected true subcmd true [args] got %v %v %v %v", *before, cmd, *after, args)
+	if !*before || cmd != "SubCmdFs" || !*after || len(args) != 1 || args[0] != "args" {
+		t.Fatalf("expected true SubCmdFs true [args] got %v %v %v %v", *before, cmd, *after, args)
 	}
 }
 

@@ -618,10 +618,8 @@ func (f *FlagSet) varErr(value Value, name string, usage string, features ...*fl
 	return flag, nil
 }
 
-type subCommandRunner = func(fs *FlagSet, args []string)
-
 type subCommand struct {
-	fn subCommandRunner
+	fn func(fs *FlagSet, args []string)
 	fs *FlagSet
 }
 
@@ -649,7 +647,7 @@ type FlagSet struct {
 	output        io.Writer // Deprecated: nil means stderr; use Output() accessor
 	cfgPath       string
 	cfg           map[string]interface{}
-	subCmds       map[string]*subCommand
+	SubCmds       map[string]*subCommand
 	parentCmd     *FlagSet
 }
 
@@ -1070,13 +1068,13 @@ func (f *FlagSet) parseOne() (bool, error) {
 // still takes in arguments to parse the sub commands passed and run it
 func (f *FlagSet) ParseWithoutArgs(args []string) error {
 	// it is possible that user is trying run a sub-command
-	subCmdName, subCmdArgs, ok := GetFirstSubCommandWithArgs(args)
+	SubCmdFsName, SubCmdFsArgs, ok := GetFirstSubCommandWithArgs(args)
 	if ok {
-		sc, ok := f.subCmds[subCmdName]
+		sc, ok := f.SubCmds[SubCmdFsName]
 		if !ok {
-			return fmt.Errorf("you are trying to run subcommand with name %v but it doesn't exist", subCmdName)
+			return fmt.Errorf("you are trying to run subcommand with name %v but it doesn't exist", SubCmdFsName)
 		}
-		sc.fn(sc.fs, subCmdArgs)
+		sc.fn(sc.fs, SubCmdFsArgs)
 	}
 	return nil
 }
@@ -1158,11 +1156,28 @@ var CommandLine = NewFlagSet(os.Args[0], ExitOnError)
 // NewFlagSet returns a new, empty flag set with the specified name and
 // error handling property. If the name is not empty, it will be printed
 // in the default usage message and in error messages.
+// NewCmd is recommended over this
 func NewFlagSet(name string, errorHandling ErrorHandling) *FlagSet {
 	f := &FlagSet{
 		name:          name,
 		errorHandling: errorHandling,
-		subCmds:       make(map[string]*subCommand),
+		SubCmds:       make(map[string]*subCommand),
+		ptrs:          make(map[string]*Flag),
+		cfg:           make(map[string]interface{}),
+	}
+	f.Usage = func() {
+		panic("Deprecated")
+	}
+	return f
+}
+
+// alias to the NewFlagSet but returns CMD interface which has old methods filtered out.
+// this is recommended over NewFlagSet.
+func NewCmd(name string, errorHandling ErrorHandling) CMD {
+	f := &FlagSet{
+		name:          name,
+		errorHandling: errorHandling,
+		SubCmds:       make(map[string]*subCommand),
 		ptrs:          make(map[string]*Flag),
 		cfg:           make(map[string]interface{}),
 	}
@@ -1220,7 +1235,7 @@ func (fs *FlagSet) LoadCfg(path string) (exists bool, err error) {
 }
 
 func bindCfgRecursiveAfterLoadCfg(fs *FlagSet) {
-	for _, sc := range fs.subCmds {
+	for _, sc := range fs.SubCmds {
 		bindCfgRecursiveAfterLoadCfg(sc.fs)
 	}
 	for _, flag := range fs.formal {
@@ -1228,17 +1243,38 @@ func bindCfgRecursiveAfterLoadCfg(fs *FlagSet) {
 	}
 }
 
+// if you are using NewCmd(..) constructor then use the SubCmd(..) method rather than this or else
+// use this if you are using NewFlagSet(..).
 // adds a new sub flagset to the parent flagset, loads the config file if it exists in the parent
 // the sub command fn recieves the new FlagSet and the arguments thats for the sub command
 // you can add new flags to this sub flagset and call fs.Parse with the arguments you recieved in this function
-func (fs *FlagSet) SubCmd(name string, fn subCommandRunner) {
+func (fs *FlagSet) SubCmdFs(name string, fn func(fs *FlagSet, args []string)) {
 	subFs := NewFlagSet(name, fs.errorHandling)
 	//subFs.LoadCfg(fs.cfgPath)
 	subFs.cfgPath = fs.cfgPath
 	subFs.cfg = fs.cfg
 	subFs.parentCmd = fs
-	fs.subCmds[name] = &subCommand{
+	fs.SubCmds[name] = &subCommand{
 		fn: fn,
+		fs: subFs,
+	}
+}
+
+// adds a new sub flagset to the parent flagset, loads the config file if it exists in the parent
+// the sub command fn recieves the new FlagSet and the arguments thats for the sub command
+// you can add new flags to this sub flagset and call fs.Parse with the arguments you recieved in this function
+func (fs *FlagSet) SubCmd(name string, fn func(cmd CMD, args []string)) {
+	subFs := NewFlagSet(name, fs.errorHandling)
+	//subFs.LoadCfg(fs.cfgPath)
+	subFs.cfgPath = fs.cfgPath
+	subFs.cfg = fs.cfg
+	subFs.parentCmd = fs
+	fs.SubCmds[name] = &subCommand{
+		fn: func(fs *FlagSet, args []string) {
+			var c CMD
+			c = fs
+			fn(c, args)
+		},
 		fs: subFs,
 	}
 }

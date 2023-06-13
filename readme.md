@@ -111,8 +111,8 @@ func main(){
 
 func git() {
 	fs := flag.NewFlagSet("git", flag.ContinueOnError)
-	fs.SubCmd("commit", commit)
-	fs.SubCmd("remote", remote)
+	fs.SubCmdFs("commit", commit)
+	fs.SubCmdFs("remote", remote)
 	//lets try to commit with branch as argument
 	err := fs.Parse([]string{"commit", "--branch", "stable"})
 	if err != nil {
