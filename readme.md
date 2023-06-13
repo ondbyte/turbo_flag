@@ -133,8 +133,8 @@ func git() {
 
 func commit(fs *flag.FlagSet, args []string) {
 	var branch string
-	fs.StringVar(&branch, "branch", "", "")
-	fs.Alias(&branch, "b")
+	fs.StringVar(&branch, "branch", "", "",fs.Alias(&branch, "b"))
+	
 	err := fs.Parse(args)
 	if err != nil {
 		panic(err)
@@ -144,8 +144,8 @@ func commit(fs *flag.FlagSet, args []string) {
 
 func remote(fs *flag.FlagSet, args []string) {
 	var name string
-	fs.StringVar(&name, "name", "", "")
-	fs.Alias(&name, "n")
+	fs.StringVar(&name, "name", "", "",fs.Alias(&name, "n"))
+	
 	err := fs.Parse(args)
 	if err != nil {
 		panic(err)
