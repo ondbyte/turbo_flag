@@ -50,10 +50,9 @@ lets load a file called demo.json having content
 now bind the cfg
 ```go
 fs := NewFlagSet("test", ContinueOnError)
-password := fs.String("password", "", "")
 err = fs.LoadCfg("./test_config/demo.json")
-//pass the password ptr to BindCfg, use dot notation to access the value in the cfg
-err = fs.BindCfg(password, "database.password")
+password := fs.String("password", "", "",fs.Cfg("database.password"))
+
 fmt.Println(*password)
 //prints "12345"
 ```
@@ -72,11 +71,7 @@ fmt.Println(*password)
 ```go
 fs := flag.NewFlagSet("demo", flag.ExitOnError)
 //now to bind a flag to a ENV/s
-dbPassword:=fs.String("dbPassword","","the password usage") 
-err = fs.BindEnv(dbPassword, "POSTGRES_PASSWORD", "DB_PASSWORD")
-if err!=nil{
-	//failed to bind
-}
+dbPassword:=fs.String("dbPassword","","the password usage",fs.Env( "POSTGRES_PASSWORD", "DB_PASSWORD")) 
 //env's set are POSTGRES_PASSWORD=abc
 fmt.Println(*dbPassword)
 //prints "abc"
@@ -85,8 +80,7 @@ fmt.Println(*dbPassword)
 useful for adding a short flag for another flag
 ```go
 fs := flag.NewFlagSet("demo", flag.ExitOnError)
-dbPassword:=fs.String("dbPassword","","the password usage string")
-err := fs.Alias(dbPassword, "p")
+dbPassword:=fs.String("dbPassword","","the password usage string",fs.Alias("p"))
 //every property of the original flag will be copied
 //when you run the program using "go run . -p "xyz"
 fmt.Println(*dbPassword)
@@ -94,10 +88,9 @@ fmt.Println(*dbPassword)
 ```
 ### **setting enums/options/allowed values for a flag**
 ```go
-fs := NewFlagSet("yourProgram", ContinueOnError)
-option := fs.String("option", "c", "")
 //its an error if the default value of a flag is not one of the enums
-err := fs.BindEnum(option, "a", "b", "c")
+fs := NewFlagSet("yourProgram", ContinueOnError,fs.Enum("a", "b", "c"))
+option := fs.String("option", "c", "")
 //from the commandline  allowed values are
 //yourProgram -option a
 //yourProgram -option b
