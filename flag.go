@@ -1154,31 +1154,122 @@ func Parsed() bool {
 var CommandLine = NewFlagSet(os.Args[0], ExitOnError)
 
 type CMD interface {
-	BoolVar(p *bool, name string, value bool, usage string, features ...*flagFeature)
-	Bool(name string, value bool, usage string, features ...*flagFeature) *bool
-	IntVar(p *int, name string, value int, usage string, features ...*flagFeature)
-	Int(name string, value int, usage string, features ...*flagFeature) *int
-	Int64Var(p *int64, name string, value int64, usage string, features ...*flagFeature)
-	Int64(name string, value int64, usage string, features ...*flagFeature) *int64
-	UintVar(p *uint, name string, value uint, usage string, features ...*flagFeature)
-	Uint(name string, value uint, usage string, features ...*flagFeature) *uint
-	Uint64Var(p *uint64, name string, value uint64, usage string, features ...*flagFeature)
-	Uint64(name string, value uint64, usage string, features ...*flagFeature) *uint64
-	StringVar(p *string, name string, value string, usage string, features ...*flagFeature)
-	String(name string, value string, usage string, features ...*flagFeature) *string
-	Float64Var(p *float64, name string, value float64, usage string, features ...*flagFeature)
-	Float64(name string, value float64, usage string, features ...*flagFeature) *float64
-	DurationVar(p *time.Duration, name string, value time.Duration, usage string, features ...*flagFeature)
-	Duration(name string, value time.Duration, usage string, features ...*flagFeature) *time.Duration
-	TextVar(p encoding.TextUnmarshaler, name string, value encoding.TextMarshaler, usage string, features ...*flagFeature)
-	Var(value Value, name string, usage string, features ...*flagFeature)
-	Name() string
-	Set(name, value string) error
-	GetDefaultUsage() (usage string, err error)
-	Args() []string
-	Func(name, usage string, fn func(string) error, features ...*flagFeature)
+
+	// ParseWithoutArgs parses the command-line arguments without consuming any of them.
+	// It returns an error if there are any unparsed flags or any error encountered during flag parsing.
 	ParseWithoutArgs(args []string) error
+
+	// loads a configuration file at path to this command so you can bind configurations
+	LoadCfg(path string) (exists bool, err error)
+
+	// introduces a subcommand to this command
+	// you can pass a callback which will recieve a new CMD with name name and args you should parse with the CMD
+	// you recieved after defining the flags
+	SubCmd(name string, fn func(cmd CMD, args []string))
+
+	// add the values possible for the flag you are defining
+	Enum(enums ...string) *flagFeature
+
+	// alias for the fla you are defining, like h for a flag named help
+	Alias(flags ...string) *flagFeature
+
+	// bind the cfg value from the configurtion file you loaded to the flag you are defining
+	Cfg(cfgs ...string) *flagFeature
+
+	//bind env to the flag you are defining
+	Env(envs ...string) *flagFeature
+
+	// BoolVar defines a bool flag with specified name, default value, usage string, and optional flag features.
+	// The argument p points to a bool variable in which to store the value of the flag.
+	BoolVar(p *bool, name string, value bool, usage string, features ...*flagFeature)
+
+	// Bool defines a bool flag with specified name, default value, usage string, and optional flag features.
+	// The return value is the address of a bool variable that stores the value of the flag.
+	Bool(name string, value bool, usage string, features ...*flagFeature) *bool
+
+	// IntVar defines an int flag with specified name, default value, usage string, and optional flag features.
+	// The argument p points to an int variable in which to store the value of the flag.
+	IntVar(p *int, name string, value int, usage string, features ...*flagFeature)
+
+	// Int defines an int flag with specified name, default value, usage string, and optional flag features.
+	// The return value is the address of an int variable that stores the value of the flag.
+	Int(name string, value int, usage string, features ...*flagFeature) *int
+
+	// Int64Var defines an int64 flag with specified name, default value, usage string, and optional flag features.
+	// The argument p points to an int64 variable in which to store the value of the flag.
+	Int64Var(p *int64, name string, value int64, usage string, features ...*flagFeature)
+
+	// Int64 defines an int64 flag with specified name, default value, usage string, and optional flag features.
+	// The return value is the address of an int64 variable that stores the value of the flag.
+	Int64(name string, value int64, usage string, features ...*flagFeature) *int64
+
+	// UintVar defines a uint flag with specified name, default value, usage string, and optional flag features.
+	// The argument p points to a uint variable in which to store the value of the flag.
+	UintVar(p *uint, name string, value uint, usage string, features ...*flagFeature)
+
+	// Uint defines a uint flag with specified name, default value, usage string, and optional flag features.
+	// The return value is the address of a uint variable that stores the value of the flag.
+	Uint(name string, value uint, usage string, features ...*flagFeature) *uint
+
+	// Uint64Var defines a uint64 flag with specified name, default value, usage string, and optional flag features.
+	// The argument p points to a uint64 variable in which to store the value of the flag.
+	Uint64Var(p *uint64, name string, value uint64, usage string, features ...*flagFeature)
+
+	// Uint64 defines a uint64 flag with specified name, default value, usage string, and optional flag features.
+	// The return value is the address of a uint64 variable that stores the value of the flag.
+	Uint64(name string, value uint64, usage string, features ...*flagFeature) *uint64
+
+	// StringVar defines a string flag with specified name, default value, usage string, and optional flag features.
+	// The argument p points to a string variable in which to store the value of the flag.
+	StringVar(p *string, name string, value string, usage string, features ...*flagFeature)
+
+	// String defines a string flag with specified name, default value, usage string, and optional flag features.
+	// The return value is the address of a string variable that stores the value of the flag.
+	String(name string, value string, usage string, features ...*flagFeature) *string
+
+	// Float64Var defines a float64 flag with specified name, default value, usage string, and optional flag features.
+	// The argument p points to a float64 variable in which to store the value of the flag.
+	Float64Var(p *float64, name string, value float64, usage string, features ...*flagFeature)
+
+	// Float64 defines a float64 flag with specified name, default value, usage string, and optional flag features.
+	// The return value is the address of a float64 variable that stores the value of the flag.
+	Float64(name string, value float64, usage string, features ...*flagFeature) *float64
+
+	// DurationVar defines a time.Duration flag with specified name, default value, usage string, and optional flag features.
+	// The argument p points to a time.Duration variable in which to store the value of the flag.
+	DurationVar(p *time.Duration, name string, value time.Duration, usage string, features ...*flagFeature)
+
+	// Duration defines a time.Duration flag with specified name, default value, usage string, and optional flag features.
+	// The return value is the address of a time.Duration variable that stores the value of the flag.
+	Duration(name string, value time.Duration, usage string, features ...*flagFeature) *time.Duration
+
+	// TextVar defines a flag with specified name, default value, usage string, and optional flag features.
+	// The argument p is an encoding.TextUnmarshaler that is used to unmarshal the flag value.
+	TextVar(p encoding.TextUnmarshaler, name string, value encoding.TextMarshaler, usage string, features ...*flagFeature)
+
+	// Var defines a flag with specified name, usage string, and optional flag features.
+	// The argument value is a Value interface that provides the flag's value and default value.
+	Var(value Value, name string, usage string, features ...*flagFeature)
+
+	// Name returns the name of the FlagSet.
+	Name() string
+
+	// Set sets the value of the named flag.
+	// It returns an error if the flag does not exist or the value is invalid.
+	Set(name, value string) error
+
+	// GetDefaultUsage returns the default usage string for the FlagSet.
+	GetDefaultUsage() (usage string, err error)
+
+	// Func defines a flag with specified name, usage string, and function to be called when the flag is parsed.
+	// The provided function is called with the flag's value as its argument.
+	Func(name, usage string, fn func(string) error, features ...*flagFeature)
+
+	// Parse parses the command-line arguments.
+	// It returns an error if there are any unparsed flags or any error encountered during flag parsing.
 	Parse(arguments []string) error
+
+	// Parsed returns whether the command-line arguments have been parsed.
 	Parsed() bool
 }
 
