@@ -50,6 +50,7 @@ lets load a file called demo.json having content
 now bind the cfg
 ```go
 fs := NewFlagSet("test", ContinueOnError)
+// only main command can load the cfg, sub commands / flagset will be preloaded with the same configuration while creating
 err = fs.LoadCfg("./test_config/demo.json")
 password := fs.String("password", "", "",fs.Cfg("database.password"))
 
@@ -105,21 +106,22 @@ var (
 	remoteName = ""
 )
 
-func main(){
-    git()
+func main() {
+	//run our program
+	os.Args = []string{"commit", "--branch", "stable"}
+	flag.NewMainCmdFs("git", flag.ContinueOnError, os.Args, git)
 }
 
-func git() {
-	fs := flag.NewFlagSet("git", flag.ContinueOnError)
+func git(fs *flag.FlagSet, args []string) {
 	fs.SubCmdFs("commit", commit)
 	fs.SubCmdFs("remote", remote)
 	//lets try to commit with branch as argument
-	err := fs.Parse([]string{"commit", "--branch", "stable"})
+	err := fs.Parse(args)
 	if err != nil {
 		panic(err)
 	}
 	if branchName != "stable" {
-		panic("branchName should be stable")
+		panic("branchNameFs should be stable")
 	}
 	//lets run remote with name argument
 	err = fs.Parse([]string{"remote", "--name", "origin"})
@@ -127,14 +129,14 @@ func git() {
 		panic(err)
 	}
 	if remoteName != "origin" {
-		panic("remoteName should be origin")
+		panic("remoteNameFs should be origin")
 	}
 }
 
 func commit(fs *flag.FlagSet, args []string) {
 	var branch string
-	fs.StringVar(&branch, "branch", "", "",fs.Alias(&branch, "b"))
-	
+	fs.StringVar(&branch, "branch", "", "", fs.Alias("b"))
+
 	err := fs.Parse(args)
 	if err != nil {
 		panic(err)
@@ -144,28 +146,35 @@ func commit(fs *flag.FlagSet, args []string) {
 
 func remote(fs *flag.FlagSet, args []string) {
 	var name string
-	fs.StringVar(&name, "name", "", "",fs.Alias(&name, "n"))
-	
+	fs.StringVar(&name, "name", "", "", fs.Alias("n"))
+
 	err := fs.Parse(args)
 	if err != nil {
 		panic(err)
 	}
 	remoteName = name
 }
+
 ```
-## or
+## alternative
 ```go
+
+var (
+	branchName = ""
+	remoteName = ""
+)
 
 func main() {
 	//run our program
-	flag.NewMainCmd("git", flag.ContinueOnError, git)
+	os.Args = []string{"commit", "--branch", "stable"}
+	flag.NewMainCmd("git", flag.ContinueOnError, os.Args, git)
 }
 
-func git(cmd flag.CMD) {
+func git(cmd flag.CMD, args []string) {
 	cmd.SubCmd("commit", commit)
 	cmd.SubCmd("remote", remote)
 	//lets try to commit with branch as argument
-	err := cmd.Parse([]string{"commit", "--branch", "stable"})
+	err := cmd.Parse(args)
 	if err != nil {
 		panic(err)
 	}
@@ -203,4 +212,5 @@ func remote(fs flag.CMD, args []string) {
 	}
 	remoteName = name
 }
+
 ```

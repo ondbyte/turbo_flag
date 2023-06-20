@@ -1321,6 +1321,8 @@ func NewCmd(name string, errorHandling ErrorHandling) CMD {
 
 // calls fn when this command with name is invoked, pass os.Args or your custom arguments to args the same will
 // be passed to fn with a new CMD with name and error handling set to errorHandling
+//
+// see here https://github.com/ondbyte/turbo_flag#alternative
 func NewMainCmd(name string, errorHandling ErrorHandling, args []string, fn func(fs CMD, args []string)) {
 	f := &FlagSet{
 		name:          name,
@@ -1335,7 +1337,9 @@ func NewMainCmd(name string, errorHandling ErrorHandling, args []string, fn func
 	fn(f, args)
 }
 
-//calls fn when this command with name is invoked, pass os.Args or your custom arguments to args the same will be passed to fn with a new FlagSet with name and error handling set to errorHandling
+// calls fn when this command with name is invoked, pass os.Args or your custom arguments to args the same will be passed to fn with a new FlagSet with name and error handling set to errorHandling
+//
+// see here https://github.com/ondbyte/turbo_flag#sub-commands
 func NewMainCmdFs(name string, errorHandling ErrorHandling, args []string, fn func(fs *FlagSet, args []string)) {
 	f := &FlagSet{
 		name:          name,
