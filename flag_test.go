@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"reflect"
 	"sort"
 	"strconv"
@@ -144,10 +145,25 @@ func TestNestedSubCmdFsRunsWithValidArgs(t *testing.T) {
 }
 
 func TestFlagSet_BindEnv(t *testing.T) {
-	os.Setenv("YADU", "123")
-	os.Setenv("PORT", "3555")
-	os.Setenv("YES", "TRUE")
 	fs := NewFlagSet("test", ContinueOnError)
+	dir := t.TempDir()
+	envFile := filepath.Join(dir, ".env")
+	f, err := os.Create(envFile)
+	if err != nil {
+		t.Fatalf(err.Error())
+	}
+	_, err = f.WriteString(`
+	YADU=123
+	PORT=3555
+	YES=TRUE
+	`)
+	if err != nil {
+		t.Fatalf(err.Error())
+	}
+	err = fs.LoadEnv(envFile)
+	if err != nil {
+		t.Fatalf("failed to load env : %v", err)
+	}
 	name := fs.String("str", "", "", fs.Env("YADU"))
 	port := fs.Int("port", 0, "", fs.Env("PORT"))
 	yes := fs.Bool("yes", false, "", fs.Env("YES"))
@@ -179,8 +195,8 @@ func TestFlagSet_BindCfg(t *testing.T) {
 		}()
 		path := "./test_config/demo." + ext
 		fs := NewFlagSet("test", ContinueOnError)
-		exists, _ := fs.LoadCfg(path)
-		if !exists {
+		err := fs.LoadCfg(path)
+		if err != nil {
 			t.Fatalf("cfg [%v] file should exist", path)
 		}
 		password := fs.String("password", "", "", fs.Cfg("database.password"))
@@ -199,7 +215,7 @@ func TestFlagSet_BindCfg(t *testing.T) {
 			}
 		}()
 
-		_, err := fs.LoadCfg("./test_config/demo." + ext)
+		err := fs.LoadCfg("./test_config/demo." + ext)
 		if err == nil {
 			t.Fatal("expected err")
 		}

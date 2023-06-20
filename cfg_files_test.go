@@ -6,6 +6,31 @@ import (
 	"testing"
 )
 
+func TestEnvToMap(t *testing.T) {
+	content := `# Comment line
+KEY1=Value1
+KEY2 = Value2
+KEY3=Value3
+# Another comment line
+KEY4 = Value4 = ExtraValue`
+
+	expected := map[string]string{
+		"KEY1": "Value1",
+		"KEY2": "Value2",
+		"KEY3": "Value3",
+		"KEY4": "Value4 = ExtraValue",
+	}
+
+	result, err := EnvToMap(content)
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+
+	if !reflect.DeepEqual(result, expected) {
+		t.Errorf("Result does not match expected value.\nExpected: %v\nGot: %v", expected, result)
+	}
+}
+
 func Test_jsonnify(t *testing.T) {
 	type args struct {
 		v interface{}

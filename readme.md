@@ -1,14 +1,15 @@
  # turbo_flag
 
 a drop in replacement for flag package which is included in the core go, but with additional capabilities like 
-1. binding to values from a configuration file 
-2. binding to environment variable
-3. enumeration of the values of the flag
-4. sub commands
-5. short alias for a flag 
-etc.
+- Writing command-line apps with subcommands
+- Loading configuration file like json,yaml,toml.
+- Binding variable/s to values from a configuration file
+- Loading `.env` files
+- Binding variable/s to environment variable/s
+- Enumeration of the values of the flag
+- Short alias for a flag
 
-**A wannabe viper or cobra alternative.**
+etc.
  
 | NOTE: following functions/methods has been deprecated because they were not adding any value to the working of the core flag package:   |
 | :------------ |

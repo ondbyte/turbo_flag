@@ -818,6 +818,7 @@ func (f *FlagSet) PrintDefaults() {
 	panic("deprecated")
 }
 
+// returns a well formatted usage to print while user passes help flag
 func (f *FlagSet) GetDefaultUsage() (usage string, err error) {
 	var isZeroValueErrs []error
 	defaultUsage := ""
@@ -1171,8 +1172,12 @@ type CMD interface {
 	// It returns an error if there are any unparsed flags or any error encountered during flag parsing.
 	ParseWithoutArgs(args []string) error
 
+	// loads all environment variables from a env file using os.SetEnv
+	// effectively making it easier to bind the flags to a env
+	LoadEnv(path string) error
+
 	// loads a configuration file at path to this command so you can bind configurations
-	LoadCfg(path string) (exists bool, err error)
+	LoadCfg(path string) (err error)
 
 	// introduces a subcommand to this command
 	// you can pass a callback which will recieve a new CMD with name name and args you should parse with the CMD
@@ -1362,25 +1367,55 @@ func (f *FlagSet) Init(name string, errorHandling ErrorHandling) {
 	f.errorHandling = errorHandling
 }
 
-func (fs *FlagSet) LoadCfg(path string) (exists bool, err error) {
+// loads all environment variables from a env file using os.SetEnv
+// effectively making it easier to bind the flags to a env
+func (fs *FlagSet) LoadEnv(path string) error {
+	if fs.parentCmd != nil {
+		return fs.parentCmd.LoadEnv(path)
+	}
+
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return fmt.Errorf("failed to read env file at %v : %v", path, err)
+	}
+	envs, err := EnvToMap(string(b))
+	if err != nil {
+		return fmt.Errorf("failed to parse env file content at %v : %v", path, err)
+	}
+	errs := ""
+	for k, v := range envs {
+		err := os.Setenv(k, v)
+		if err != nil {
+			errs += err.Error() + "\n"
+		}
+	}
+	if errs != "" {
+		return fmt.Errorf("partially loaded envs beacuse : %v", err)
+	}
+	return nil
+}
+
+// loads a cfg to this flagset
+// any sub command defined will also derive from this
+func (fs *FlagSet) LoadCfg(path string) (err error) {
 	if fs.parentCmd != nil {
 		return fs.parentCmd.LoadCfg(path)
 	}
 	if path == "" {
-		return false, fmt.Errorf("path is empty while loading config")
+		return fmt.Errorf("path is empty while loading config")
 	}
 
 	fs.cfgPath = path
 	b, err := os.ReadFile(path)
 	if err != nil {
-		return false, fmt.Errorf("failed to read config file at %v : %v", path, err)
+		return fmt.Errorf("failed to read config file at %v : %v", path, err)
 	}
 	fileContent := string(b)
 	mapContent := make(map[string]interface{})
 	ext := strings.ToUpper(filepath.Ext(path))
 	switch ext {
 	case "":
-		return false, fmt.Errorf("config file has no extension, add a supported extension [YAML,YML,JSON,PROPERTIES]")
+		return fmt.Errorf("config file has no extension, add a supported extension [YAML,YML,JSON,PROPERTIES]")
 	case ".JSON":
 		mapContent, err = JSONToMap(fileContent)
 		break
@@ -1391,14 +1426,14 @@ func (fs *FlagSet) LoadCfg(path string) (exists bool, err error) {
 		mapContent, err = TOMLToMap(fileContent)
 		break
 	default:
-		return false, fmt.Errorf("unsupported extension %v", ext)
+		return fmt.Errorf("unsupported extension %v", ext)
 	}
 	if err != nil {
-		return false, fmt.Errorf("unable to read config file : %v", err)
+		return fmt.Errorf("unable to read config file : %v", err)
 	}
 	fs.cfg = mapContent
 	bindCfgRecursiveAfterLoadCfg(fs)
-	return true, nil
+	return nil
 }
 
 func bindCfgRecursiveAfterLoadCfg(fs *FlagSet) {

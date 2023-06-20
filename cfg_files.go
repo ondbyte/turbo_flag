@@ -3,12 +3,38 @@ package flag
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 
 	"github.com/BurntSushi/toml"
 	"github.com/go-yaml/yaml"
 )
+
+// EnvToMap parses an environment file content and returns the key-value pairs as a map.
+func EnvToMap(content string) (map[string]string, error) {
+	envMap := make(map[string]string)
+
+	lines := strings.Split(content, "\n")
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+
+		parts := strings.SplitN(line, "=", 2)
+		if len(parts) != 2 {
+			return nil, errors.New("invalid line format: " + line)
+		}
+
+		key := strings.TrimSpace(parts[0])
+		value := strings.TrimSpace(parts[1])
+
+		envMap[key] = value
+	}
+
+	return envMap, nil
+}
 
 // MapToYAML writes a map to a YAML string
 func MapToYAML(data map[string]interface{}) (string, error) {
