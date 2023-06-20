@@ -153,3 +153,54 @@ func remote(fs *flag.FlagSet, args []string) {
 	remoteName = name
 }
 ```
+## or
+```go
+
+func main() {
+	//run our program
+	flag.NewMainCmd("git", flag.ContinueOnError, git)
+}
+
+func git(cmd flag.CMD) {
+	cmd.SubCmd("commit", commit)
+	cmd.SubCmd("remote", remote)
+	//lets try to commit with branch as argument
+	err := cmd.Parse([]string{"commit", "--branch", "stable"})
+	if err != nil {
+		panic(err)
+	}
+	if branchName != "stable" {
+		panic("branchName should be stable")
+	}
+	//lets run remote with name argument
+	err = cmd.Parse([]string{"remote", "--name", "origin"})
+	if err != nil {
+		panic(err)
+	}
+	if remoteName != "origin" {
+		panic("remoteName should be origin")
+	}
+}
+
+func commit(fs flag.CMD, args []string) {
+	var branch string
+	fs.StringVar(&branch, "branch", "", "", fs.Alias("b"))
+
+	err := fs.Parse(args)
+	if err != nil {
+		panic(err)
+	}
+	branchName = branch
+}
+
+func remote(fs flag.CMD, args []string) {
+	var name string
+	fs.StringVar(&name, "name", "", "", fs.Alias("n"))
+
+	err := fs.Parse(args)
+	if err != nil {
+		panic(err)
+	}
+	remoteName = name
+}
+```

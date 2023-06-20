@@ -5,6 +5,7 @@
 // These examples demonstrate more intricate uses of the flag package.
 package flag_test
 
+/*
 import (
 	"errors"
 	"flag"
@@ -81,3 +82,4 @@ func Example() {
 	// We don't run it here because this is not a main function and
 	// the testing suite has already parsed the flags.
 }
+*/

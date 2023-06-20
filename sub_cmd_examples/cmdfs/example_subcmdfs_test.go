@@ -1,6 +1,7 @@
 package flag_test
 
 import (
+	"os"
 	"testing"
 
 	flag "github.com/ondbyte/turbo_flag"
@@ -11,22 +12,26 @@ var (
 	remoteName = ""
 )
 
-func TestSubCmdFs(t *testing.T) {
-	//run our program
-	git()
+func TestSubCmd(t *testing.T) {
+	main()
 }
 
-func git() {
-	fs := flag.NewFlagSet("git", flag.ContinueOnError)
+func main() {
+	//run our program
+	os.Args = []string{"commit", "--branch", "stable"}
+	flag.NewMainCmdFs("git", flag.ContinueOnError, os.Args, git)
+}
+
+func git(fs *flag.FlagSet, args []string) {
 	fs.SubCmdFs("commit", commit)
 	fs.SubCmdFs("remote", remote)
 	//lets try to commit with branch as argument
-	err := fs.Parse([]string{"commit", "--branch", "stable"})
+	err := fs.Parse(args)
 	if err != nil {
 		panic(err)
 	}
 	if branchName != "stable" {
-		panic("branchName should be stable")
+		panic("branchNameFs should be stable")
 	}
 	//lets run remote with name argument
 	err = fs.Parse([]string{"remote", "--name", "origin"})
@@ -34,7 +39,7 @@ func git() {
 		panic(err)
 	}
 	if remoteName != "origin" {
-		panic("remoteName should be origin")
+		panic("remoteNameFs should be origin")
 	}
 }
 

@@ -1068,15 +1068,21 @@ func (f *FlagSet) parseOne() (bool, error) {
 // still takes in arguments to parse the sub commands passed and run it
 func (f *FlagSet) ParseWithoutArgs(args []string) error {
 	// it is possible that user is trying run a sub-command
+	_, err := f.parseSubCommandAndRun(args)
+	return err
+}
+
+// lets us know whether subcommand found in args and ran
+func (f *FlagSet) parseSubCommandAndRun(args []string) (bool, error) {
 	SubCmdFsName, SubCmdFsArgs, ok := GetFirstSubCommandWithArgs(args)
 	if ok {
 		sc, ok := f.SubCmds[SubCmdFsName]
 		if !ok {
-			return fmt.Errorf("you are trying to run subcommand with name %v but it doesn't exist", SubCmdFsName)
+			return false, fmt.Errorf("you are trying to run subcommand with name %v but it doesn't exist", SubCmdFsName)
 		}
 		sc.fn(sc.fs, SubCmdFsArgs)
 	}
-	return nil
+	return ok, nil
 }
 
 func GetFirstSubCommandWithArgs(args []string) (string, []string, bool) {
@@ -1112,9 +1118,14 @@ func (f *FlagSet) handleError(err error) error {
 // are defined and before flags are accessed by the program.
 // The return value will be ErrHelp if -help or -h were set but not defined.
 func (f *FlagSet) Parse(arguments []string) error {
-	err := f.ParseWithoutArgs(arguments)
+	ran, err := f.parseSubCommandAndRun(arguments)
 	if err != nil {
 		return f.handleError(err)
+	}
+	// did we find a sub command and ran it?
+	if ran {
+		// then we shouldn't continue running the parent command
+		return nil
 	}
 	f.parsed = true
 	f.args = arguments
@@ -1153,6 +1164,7 @@ func Parsed() bool {
 // methods of CommandLine.
 var CommandLine = NewFlagSet(os.Args[0], ExitOnError)
 
+// CMD is just a interface for *flag.FlagSet
 type CMD interface {
 
 	// ParseWithoutArgs parses the command-line arguments without consuming any of them.
@@ -1305,6 +1317,37 @@ func NewCmd(name string, errorHandling ErrorHandling) CMD {
 		panic("Deprecated")
 	}
 	return f
+}
+
+// calls fn when this command with name is invoked, pass os.Args or your custom arguments to args the same will
+// be passed to fn with a new CMD with name and error handling set to errorHandling
+func NewMainCmd(name string, errorHandling ErrorHandling, args []string, fn func(fs CMD, args []string)) {
+	f := &FlagSet{
+		name:          name,
+		errorHandling: errorHandling,
+		SubCmds:       make(map[string]*subCommand),
+		ptrs:          make(map[string]*Flag),
+		cfg:           make(map[string]interface{}),
+	}
+	f.Usage = func() {
+		panic("Deprecated")
+	}
+	fn(f, args)
+}
+
+//calls fn when this command with name is invoked, pass os.Args or your custom arguments to args the same will be passed to fn with a new FlagSet with name and error handling set to errorHandling
+func NewMainCmdFs(name string, errorHandling ErrorHandling, args []string, fn func(fs *FlagSet, args []string)) {
+	f := &FlagSet{
+		name:          name,
+		errorHandling: errorHandling,
+		SubCmds:       make(map[string]*subCommand),
+		ptrs:          make(map[string]*Flag),
+		cfg:           make(map[string]interface{}),
+	}
+	f.Usage = func() {
+		panic("Deprecated")
+	}
+	fn(f, args)
 }
 
 // Init sets the name and error handling property for a flag set.
