@@ -300,10 +300,11 @@ type Flag struct {
 	Value    Value  // value as set
 	DefValue string // default value (as text); for usage message
 
-	envs  map[string]bool
-	cfgs  map[string]bool
-	enums map[string]bool
-	alias map[string]bool
+	envs     map[string]bool
+	cfgs     map[string]bool
+	enums    map[string]bool
+	alias    map[string]bool
+	aliasFor string //this flag is an alias for
 }
 
 func isEnumValid(e string, enums []string) bool {
@@ -595,7 +596,7 @@ func (f *FlagSet) varErr(value Value, name string, usage string, features ...*fl
 	}
 
 	// Remember the default value as a string; it won't change.
-	flag := &Flag{name, usage, value, value.String(), make(map[string]bool), make(map[string]bool), make(map[string]bool), make(map[string]bool)}
+	flag := &Flag{Name: name, Usage: usage, Value: value, DefValue: value.String(), envs: make(map[string]bool), cfgs: make(map[string]bool), enums: make(map[string]bool), alias: make(map[string]bool)}
 	_, alreadythere := f.formal[name]
 	if alreadythere {
 		var msg string
@@ -638,6 +639,7 @@ type FlagSet struct {
 	Usage func()
 
 	name          string
+	usg           string // description about this command
 	parsed        bool
 	actual        map[string]*Flag
 	formal        map[string]*Flag
@@ -791,8 +793,13 @@ func UnquoteUsage(flag *Flag) (name string, usage string) {
 		}
 	}
 	// No explicit name, so use type if we can find one.
+	name = valueTypeName(flag.Value)
+	return
+}
+
+func valueTypeName(v Value) (name string) {
 	name = "value"
-	switch flag.Value.(type) {
+	switch v.(type) {
 	case boolFlag:
 		name = ""
 	case *durationValue:
@@ -818,74 +825,99 @@ func (f *FlagSet) PrintDefaults() {
 	panic("deprecated")
 }
 
-// returns a well formatted usage to print while user passes help flag
+func (f *FlagSet) SetUsage(usage string) {
+	f.usg = usage
+}
+
+// returns a well formatted short usage to print while user passes help flag
 func (f *FlagSet) GetDefaultUsage() (usage string, err error) {
+	return f.getDefaultUsage(true)
+}
+
+// returns a well formatted detailed (with additional details about the features of the flag) usage to print while user passes help flag
+func (f *FlagSet) GetDefaultUsageLong() (usage string, err error) {
+	return f.getDefaultUsage(false)
+}
+
+// returns a well formatted usage to print while user passes help flag
+func (f *FlagSet) getDefaultUsage(short bool) (usage string, err error) {
 	var isZeroValueErrs []error
 	defaultUsage := ""
-	if f.name == "" {
-		defaultUsage += "Usage:\n"
-	} else {
-		defaultUsage += fmt.Sprintf("Usage of %s:\n", f.name)
+	if f.usg != "" {
+		defaultUsage += fmt.Sprintf("%s\n\n", f.usg)
 	}
-	f.VisitAll(func(flag *Flag) {
-		var b strings.Builder
-		fmt.Fprintf(&b, "  -%s", flag.Name) // Two spaces before -; see next two comments.
-		name, usage := UnquoteUsage(flag)
-		if len(name) > 0 {
-			b.WriteString(" ")
-			b.WriteString(name)
-		}
-		b.WriteString("\n")
-		if usage != "" {
-			b.WriteString("    ")
-		}
-		b.WriteString(strings.ReplaceAll(usage, "\n", "\n    \t"))
+	hasFlags := len(f.formal) > 0
+	hasSubCmds := len(f.SubCmds) > 0
 
-		// Print the default  value only if it differs to the zero value
-		// for this flag type.
-		if isZero, err := isZeroValue(flag, flag.DefValue); err != nil {
-			isZeroValueErrs = append(isZeroValueErrs, err)
+	currentCmd := f
+	commandName := currentCmd.name
+	for {
+		if currentCmd.parentCmd != nil {
+			commandName = currentCmd.parentCmd.name + " " + commandName
+			currentCmd = currentCmd.parentCmd
 		} else {
-			var nb strings.Builder
-			nb.WriteString("\033[1;30m")
-			if !isZero {
-				fmt.Fprintf(&nb, "defaults to [%v]", flag.DefValue)
+			break
+		}
+	}
+	if hasFlags {
+		defaultUsage += fmt.Sprintf("usage:\n  %v [<flags>]\n", commandName)
+	}
+	if hasFlags && hasSubCmds {
+		defaultUsage += "  or\n"
+	}
+	if hasSubCmds {
+		defaultUsage += fmt.Sprintf("  %v [<sub-command>]\n", commandName)
+	}
+	// list of subcommands
+	if len(f.SubCmds) > 0 {
+		defaultUsage += "\n"
+		defaultUsage += "Available sub commands:\n"
+		for _, sc := range f.SubCmds {
+			defaultUsage += ("  " + sc.fs.name + "  " + sc.fs.usg + "\n")
+		}
+	}
+	if hasFlags {
+		defaultUsage += "\nFlags:\n"
+		for _, flag := range f.formal {
+			usage := flag.Usage
+			if flag.aliasFor == "" {
+				if usage == "" {
+					usage = "usage not available"
+				}
+				bracketUsage := fmt.Sprintf("defaults to \"%v\"", flag.DefValue)
+				if !short {
+					if len(flag.enums) > 0 {
+						bracketUsage += fmt.Sprintf(", possible values [%v]", strings.Join(qKeys(flag.enums), ", "))
+					}
+					if len(flag.alias) > 0 {
+						bracketUsage += fmt.Sprintf(", alias [%v]", strings.Join(qKeys(flag.alias), ", "))
+					}
+					if len(flag.envs) > 0 {
+						bracketUsage += fmt.Sprintf(", binds to env/s [%v]", strings.Join(qKeys(flag.envs), ", "))
+					}
+					if len(flag.cfgs) > 0 {
+						bracketUsage += fmt.Sprintf(", binds to cfg/s [%v]", strings.Join(qKeys(flag.cfgs), ", "))
+					}
+				}
+				defaultUsage += fmt.Sprintf("  --%v %v  %v, (%v)\n", flag.Name, valueTypeName(flag.Value), usage, bracketUsage)
 			} else {
-				fmt.Fprintf(&nb, "has no default value")
+				defaultUsage += fmt.Sprintf("  --%v %v  alias for \"--%v\"\n", flag.Name, valueTypeName(flag.Value), flag.aliasFor)
 			}
-			if len(flag.alias) > 0 {
-				fmt.Fprintf(&nb, ", aliases include [-%v]", strings.Join(keys(flag.alias), ", -"))
+			if hasSubCmds {
+				defaultUsage += fmt.Sprintf("\nUse \"%v [command] --help\" for more information about a command.", commandName)
 			}
-			if len(flag.enums) > 0 {
-				fmt.Fprintf(&nb, ", possible values are [%v]", strings.Join(keys(flag.enums), ", "))
-			}
-			if len(flag.cfgs) > 0 {
-				fmt.Fprintf(&nb, ", binds to these values from config file [%v]", strings.Join(keys(flag.cfgs), ", "))
-			}
-			if len(flag.envs) > 0 {
-				fmt.Fprintf(&nb, " binds to these env's [%v]\n", strings.Join(keys(flag.envs), ", "))
-			}
-			if usage != "" {
-				fmt.Fprint(&b, "\n")
-			}
-			if nb.String() != "" {
-				fmt.Fprintf(&b, "    (%v)", nb.String())
-			}
-			nb.WriteString("\033[0m")
 		}
-		defaultUsage += b.String()
-		if usage != "" {
-			usage += "\n"
-		}
-	})
+	}
 	errS := ""
 	if errs := isZeroValueErrs; len(errs) > 0 {
 		for _, err := range errs {
 			errS += (err.Error() + "\n")
 		}
 	}
-	err = errors.New(errS)
-	return
+	if errS != "" {
+		err = errors.New(errS)
+	}
+	return defaultUsage, err
 }
 
 // PrintDefaults prints, to standard error unless configured otherwise,
@@ -1182,7 +1214,7 @@ type CMD interface {
 	// introduces a subcommand to this command
 	// you can pass a callback which will recieve a new CMD with name name and args you should parse with the CMD
 	// you recieved after defining the flags
-	SubCmd(name string, fn func(cmd CMD, args []string))
+	SubCmd(name string, usage string, fn func(cmd CMD, args []string))
 
 	// add the values possible for the flag you are defining
 	Enum(enums ...string) *flagFeature
@@ -1275,8 +1307,11 @@ type CMD interface {
 	// It returns an error if the flag does not exist or the value is invalid.
 	Set(name, value string) error
 
-	// GetDefaultUsage returns the default usage string for the FlagSet.
+	// GetDefaultUsage returns the default usage string for the CMD.
 	GetDefaultUsage() (usage string, err error)
+
+	// returns a well formatted detailed (with additional details about the features of the flag) usage to print while user passes help flag
+	GetDefaultUsageLong() (usage string, err error)
 
 	// Func defines a flag with specified name, usage string, and function to be called when the flag is parsed.
 	// The provided function is called with the flag's value as its argument.
@@ -1309,14 +1344,15 @@ func NewFlagSet(name string, errorHandling ErrorHandling) *FlagSet {
 }
 
 // alias to the NewFlagSet but returns CMD interface which has old methods filtered out.
-// this is recommended over NewFlagSet.
-func NewCmd(name string, errorHandling ErrorHandling) CMD {
+// this or MainCmd(...) recommended over NewFlagSet.
+func NewCmd(name string, usage string, errorHandling ErrorHandling) CMD {
 	f := &FlagSet{
 		name:          name,
 		errorHandling: errorHandling,
 		SubCmds:       make(map[string]*subCommand),
 		ptrs:          make(map[string]*Flag),
 		cfg:           make(map[string]interface{}),
+		usg:           usage,
 	}
 	f.Usage = func() {
 		panic("Deprecated")
@@ -1328,13 +1364,14 @@ func NewCmd(name string, errorHandling ErrorHandling) CMD {
 // be passed to fn with a new CMD with name and error handling set to errorHandling
 //
 // see here https://github.com/ondbyte/turbo_flag#alternative
-func NewMainCmd(name string, errorHandling ErrorHandling, args []string, fn func(fs CMD, args []string)) {
+func MainCmd(name string, usage string, errorHandling ErrorHandling, args []string, fn func(fs CMD, args []string)) {
 	f := &FlagSet{
 		name:          name,
 		errorHandling: errorHandling,
 		SubCmds:       make(map[string]*subCommand),
 		ptrs:          make(map[string]*Flag),
 		cfg:           make(map[string]interface{}),
+		usg:           usage,
 	}
 	f.Usage = func() {
 		panic("Deprecated")
@@ -1345,13 +1382,14 @@ func NewMainCmd(name string, errorHandling ErrorHandling, args []string, fn func
 // calls fn when this command with name is invoked, pass os.Args or your custom arguments to args the same will be passed to fn with a new FlagSet with name and error handling set to errorHandling
 //
 // see here https://github.com/ondbyte/turbo_flag#sub-commands
-func NewMainCmdFs(name string, errorHandling ErrorHandling, args []string, fn func(fs *FlagSet, args []string)) {
+func MainCmdFs(name string, usage string, errorHandling ErrorHandling, args []string, fn func(fs *FlagSet, args []string)) {
 	f := &FlagSet{
 		name:          name,
 		errorHandling: errorHandling,
 		SubCmds:       make(map[string]*subCommand),
 		ptrs:          make(map[string]*Flag),
 		cfg:           make(map[string]interface{}),
+		usg:           usage,
 	}
 	f.Usage = func() {
 		panic("Deprecated")
@@ -1450,8 +1488,9 @@ func bindCfgRecursiveAfterLoadCfg(fs *FlagSet) {
 // adds a new sub flagset to the parent flagset, loads the config file if it exists in the parent
 // the sub command fn recieves the new FlagSet and the arguments thats for the sub command
 // you can add new flags to this sub flagset and call fs.Parse with the arguments you recieved in this function
-func (fs *FlagSet) SubCmdFs(name string, fn func(fs *FlagSet, args []string)) {
+func (fs *FlagSet) SubCmdFs(name string, usage string, fn func(fs *FlagSet, args []string)) {
 	subFs := NewFlagSet(name, fs.errorHandling)
+	subFs.SetUsage(usage)
 	//subFs.LoadCfg(fs.cfgPath)
 	subFs.cfgPath = fs.cfgPath
 	subFs.cfg = fs.cfg
@@ -1465,8 +1504,9 @@ func (fs *FlagSet) SubCmdFs(name string, fn func(fs *FlagSet, args []string)) {
 // adds a new sub flagset to the parent flagset, loads the config file if it exists in the parent
 // the sub command fn recieves the new FlagSet and the arguments thats for the sub command
 // you can add new flags to this sub flagset and call fs.Parse with the arguments you recieved in this function
-func (fs *FlagSet) SubCmd(name string, fn func(cmd CMD, args []string)) {
+func (fs *FlagSet) SubCmd(name string, usage string, fn func(cmd CMD, args []string)) {
 	subFs := NewFlagSet(name, fs.errorHandling)
+	subFs.SetUsage(usage)
 	//subFs.LoadCfg(fs.cfgPath)
 	subFs.cfgPath = fs.cfgPath
 	subFs.cfg = fs.cfg
@@ -1535,6 +1575,7 @@ func (fs *FlagSet) alias(to *Flag, names ...string) {
 		f.envs = to.envs
 		f.cfgs = to.cfgs
 		f.enums = to.enums
+		f.aliasFor = to.Name
 		for k, v := range to.alias {
 			f.alias[k] = v
 		}

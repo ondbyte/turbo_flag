@@ -76,7 +76,7 @@ func TestFlagSet_Parse(t *testing.T) {
 			name: "first",
 			fs: func() *FlagSet {
 				fs := NewFlagSet("first", ContinueOnError)
-				fs.SubCmdFs("yadu", func(fs *FlagSet, args []string) {})
+				fs.SubCmdFs("yadu", "", func(fs *FlagSet, args []string) {})
 				fs.String("yadu", "", "")
 				fs.String("yes", "", "")
 				return fs
@@ -114,9 +114,9 @@ func TestNestedSubCmdFsRunsWithValidArgs(t *testing.T) {
 	arg := make([]string, 0)
 	arg2 := make([]string, 0)
 	fs := NewFlagSet("first", ContinueOnError)
-	fs.SubCmdFs("yadu", func(fs2 *FlagSet, args []string) {
+	fs.SubCmdFs("yadu", "", func(fs2 *FlagSet, args []string) {
 		arg = args
-		fs2.SubCmdFs("nandan", func(fs *FlagSet, args []string) {
+		fs2.SubCmdFs("nandan", "", func(fs *FlagSet, args []string) {
 			arg2 = args
 		})
 

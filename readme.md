@@ -110,7 +110,7 @@ var (
 func main() {
 	//run our program
 	os.Args = []string{"commit", "--branch", "stable"}
-	flag.NewMainCmdFs("git", flag.ContinueOnError, os.Args, git)
+	flag.MainCmdFs("git", flag.ContinueOnError, os.Args, git)
 }
 
 func git(fs *flag.FlagSet, args []string) {
@@ -168,7 +168,7 @@ var (
 func main() {
 	//run our program
 	os.Args = []string{"commit", "--branch", "stable"}
-	flag.NewMainCmd("git", flag.ContinueOnError, os.Args, git)
+	flag.MainCmd("git", flag.ContinueOnError, os.Args, git)
 }
 
 func git(cmd flag.CMD, args []string) {

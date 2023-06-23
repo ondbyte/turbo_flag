@@ -19,12 +19,12 @@ func TestSubCmd(t *testing.T) {
 func main() {
 	//run our program
 	os.Args = []string{"commit", "--branch", "stable"}
-	flag.NewMainCmdFs("git", flag.ContinueOnError, os.Args, git)
+	flag.MainCmdFs("git", "a version control implemented in golang", flag.ContinueOnError, os.Args, git)
 }
 
 func git(fs *flag.FlagSet, args []string) {
-	fs.SubCmdFs("commit", commit)
-	fs.SubCmdFs("remote", remote)
+	fs.SubCmdFs("commit", "commits the changes with a message", commit)
+	fs.SubCmdFs("remote", "adds a remote with name", remote)
 	//lets try to commit with branch as argument
 	err := fs.Parse(args)
 	if err != nil {

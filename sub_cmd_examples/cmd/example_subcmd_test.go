@@ -1,6 +1,7 @@
 package flag_test
 
 import (
+	"fmt"
 	"os"
 	"testing"
 
@@ -19,12 +20,13 @@ func TestSubCmd(t *testing.T) {
 func main() {
 	//run our program
 	os.Args = []string{"commit", "--branch", "stable"}
-	flag.NewMainCmd("git", flag.ContinueOnError, os.Args, git)
+	flag.MainCmd("git", "a version control implemented in golang", flag.ContinueOnError, os.Args, git)
 }
 
 func git(cmd flag.CMD, args []string) {
-	cmd.SubCmd("commit", commit)
-	cmd.SubCmd("remote", remote)
+	cmd.Bool("help", false, "help message")
+	cmd.SubCmd("commit", "commits the changes with a message", commit)
+	cmd.SubCmd("remote", "adds a remote with name", remote)
 	//lets try to commit with branch as argument
 	err := cmd.Parse(args)
 	if err != nil {
@@ -41,22 +43,32 @@ func git(cmd flag.CMD, args []string) {
 	if remoteName != "origin" {
 		panic("remoteName should be origin")
 	}
+	help, err := cmd.GetDefaultUsage()
+	if err != nil {
+		panic("error: " + err.Error())
+	}
+	fmt.Println(help)
 }
 
-func commit(fs flag.CMD, args []string) {
+func commit(cmd flag.CMD, args []string) {
 	var branch string
-	fs.StringVar(&branch, "branch", "", "", fs.Alias("b"))
+	cmd.StringVar(&branch, "branch", "main", "branch name to work", cmd.Cfg("branch.name"), cmd.Alias("b"), cmd.Env("BRANCH", "MAIN_BRNCH"), cmd.Enum("main", "stable"))
 
-	err := fs.Parse(args)
+	err := cmd.Parse(args)
 	if err != nil {
 		panic(err)
 	}
 	branchName = branch
+	help, err := cmd.GetDefaultUsage()
+	if err != nil {
+		panic("error: " + err.Error())
+	}
+	fmt.Println(help)
 }
 
 func remote(fs flag.CMD, args []string) {
 	var name string
-	fs.StringVar(&name, "name", "", "", fs.Alias("n"))
+	fs.StringVar(&name, "name", "", "remote name work with", fs.Alias("n"))
 
 	err := fs.Parse(args)
 	if err != nil {
