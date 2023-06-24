@@ -830,6 +830,16 @@ func (f *FlagSet) SetUsage(usage string) {
 }
 
 // returns a well formatted short usage to print while user passes help flag
+func GetDefaultUsage() (usage string, err error) {
+	return CommandLine.GetDefaultUsage()
+}
+
+// returns a well formatted detailed (with additional details about the features of the flag) usage to print while user passes help flag
+func GetDefaultUsageLong() (usage string, err error) {
+	return CommandLine.GetDefaultUsageLong()
+}
+
+// returns a well formatted short usage to print while user passes help flag
 func (f *FlagSet) GetDefaultUsage() (usage string, err error) {
 	return f.getDefaultUsage(true)
 }
@@ -946,9 +956,6 @@ func (f *FlagSet) getDefaultUsage(short bool) (usage string, err error) {
 //		search directory for include files.
 //
 // To change the destination for flag messages, call CommandLine.SetOutput.
-func GetDefaultUsage() (usage string, err error) {
-	return CommandLine.GetDefaultUsage()
-}
 
 // NOTE: Usage is not just defaultUsage(CommandLine)
 // because it serves (via godoc flag Usage,features) as the example
@@ -1103,6 +1110,13 @@ func (f *FlagSet) ParseWithoutArgs(args []string) error {
 	// it is possible that user is trying run a sub-command
 	_, err := f.parseSubCommandAndRun(args)
 	return err
+}
+
+// ParseWithoutArgs parses everything like binding cfg, binding env, binding to other flags etc but arguments passed to the
+// program won't be parsed and considered, when you require flag set to act like config loader (viper'ish)
+// still takes in arguments to parse the sub commands passed and run it
+func ParseWithoutArgs() error {
+	return CommandLine.ParseWithoutArgs(os.Args[1:])
 }
 
 // lets us know whether subcommand found in args and ran
@@ -1407,6 +1421,12 @@ func (f *FlagSet) Init(name string, errorHandling ErrorHandling) {
 
 // loads all environment variables from a env file using os.SetEnv
 // effectively making it easier to bind the flags to a env
+func LoadEnv(path string) error {
+	return CommandLine.LoadEnv(path)
+}
+
+// loads all environment variables from a env file using os.SetEnv
+// effectively making it easier to bind the flags to a env
 func (fs *FlagSet) LoadEnv(path string) error {
 	if fs.parentCmd != nil {
 		return fs.parentCmd.LoadEnv(path)
@@ -1431,6 +1451,12 @@ func (fs *FlagSet) LoadEnv(path string) error {
 		return fmt.Errorf("partially loaded envs beacuse : %v", err)
 	}
 	return nil
+}
+
+// loads a cfg to this default flagset
+// any sub command defined will also derive from this
+func LoadCfg(path string) (err error) {
+	return CommandLine.LoadCfg(path)
 }
 
 // loads a cfg to this flagset
@@ -1488,6 +1514,15 @@ func bindCfgRecursiveAfterLoadCfg(fs *FlagSet) {
 // adds a new sub flagset to the parent flagset, loads the config file if it exists in the parent
 // the sub command fn recieves the new FlagSet and the arguments thats for the sub command
 // you can add new flags to this sub flagset and call fs.Parse with the arguments you recieved in this function
+func SubCmdFs(name string, usage string, fn func(fs *FlagSet, args []string)) {
+	CommandLine.SubCmdFs(name, usage, fn)
+}
+
+// if you are using NewCmd(..) constructor then use the SubCmd(..) method rather than this or else
+// use this if you are using NewFlagSet(..).
+// adds a new sub flagset to the parent flagset, loads the config file if it exists in the parent
+// the sub command fn recieves the new FlagSet and the arguments thats for the sub command
+// you can add new flags to this sub flagset and call fs.Parse with the arguments you recieved in this function
 func (fs *FlagSet) SubCmdFs(name string, usage string, fn func(fs *FlagSet, args []string)) {
 	subFs := NewFlagSet(name, fs.errorHandling)
 	subFs.SetUsage(usage)
@@ -1499,6 +1534,13 @@ func (fs *FlagSet) SubCmdFs(name string, usage string, fn func(fs *FlagSet, args
 		fn: fn,
 		fs: subFs,
 	}
+}
+
+// adds a new sub flagset to the parent flagset, loads the config file if it exists in the parent
+// the sub command fn recieves the new FlagSet and the arguments thats for the sub command
+// you can add new flags to this sub flagset and call fs.Parse with the arguments you recieved in this function
+func SubCmd(name string, usage string, fn func(cmd CMD, args []string)) {
+	CommandLine.SubCmd(name, usage, fn)
 }
 
 // adds a new sub flagset to the parent flagset, loads the config file if it exists in the parent
@@ -1534,6 +1576,12 @@ func (s flagFeatures) Less(i, j int) bool { return s[i].index < s[j].index }
 
 // bind enums to the flag, if you do this only entries in the enums will be the possible values for flag you are currently defining
 // https://github.com/ondbyte/turbo_flag#setting-enumsoptionsallowed-values-for-a-flag
+func Enum(enums ...string) *flagFeature {
+	return CommandLine.Enum(enums...)
+}
+
+// bind enums to the flag, if you do this only entries in the enums will be the possible values for flag you are currently defining
+// https://github.com/ondbyte/turbo_flag#setting-enumsoptionsallowed-values-for-a-flag
 func (fs *FlagSet) Enum(enums ...string) *flagFeature {
 	return &flagFeature{
 		index: 10,
@@ -1550,6 +1598,13 @@ func (fs *FlagSet) bindEnum(to *Flag, enums ...string) {
 	for _, enum := range enums {
 		to.enums[enum] = true
 	}
+}
+
+// binds flag/s with names to the flag you are defining, useful in adding short flags (bind flag help to flag h),
+// every property of the flag will be copied.
+// https://github.com/ondbyte/turbo_flag#setting-alias-for-a-flag
+func Alias(flags ...string) *flagFeature {
+	return CommandLine.Alias(flags...)
 }
 
 // binds flag/s with names to the flag you are defining, useful in adding short flags (bind flag help to flag h),
@@ -1587,6 +1642,13 @@ func (fs *FlagSet) alias(to *Flag, names ...string) {
 // binds configurations value from config file to the to flag,
 // use dot notation of the config key to bind.
 // https://github.com/ondbyte/turbo_flag#loading-configurations
+func Cfg(cfgs ...string) *flagFeature {
+	return CommandLine.Cfg(cfgs...)
+}
+
+// binds configurations value from config file to the to flag,
+// use dot notation of the config key to bind.
+// https://github.com/ondbyte/turbo_flag#loading-configurations
 func (fs *FlagSet) Cfg(cfgs ...string) *flagFeature {
 	return &flagFeature{
 		index: 8,
@@ -1616,6 +1678,12 @@ func (fs *FlagSet) bindCfg(to *Flag, cfgs ...string) {
 	for _, cfg := range cfgs {
 		to.cfgs[cfg] = true
 	}
+}
+
+// binds env/s to the to flag you are defining
+// https://github.com/ondbyte/turbo_flag#binding-environment-variables
+func Env(envs ...string) *flagFeature {
+	return CommandLine.Env(envs...)
 }
 
 // binds env/s to the to flag you are defining
