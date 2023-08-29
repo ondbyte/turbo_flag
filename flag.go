@@ -1137,7 +1137,7 @@ func GetFirstSubCommandWithArgs(args []string) (string, []string, bool) {
 		return "", nil, false
 	}
 	str := args[0]
-	if !strings.Contains(str, "-") {
+	if !strings.HasPrefix(str, "-") {
 		return str, args[1:], true
 	}
 	return "", nil, false
@@ -1358,7 +1358,7 @@ func NewFlagSet(name string, errorHandling ErrorHandling) *FlagSet {
 }
 
 // alias to the NewFlagSet but returns CMD interface which has old methods filtered out.
-// this or MainCmd(...) recommended over NewFlagSet.
+// this or MainCmd(...) recommended over this and NewFlagSet.
 func NewCmd(name string, usage string, errorHandling ErrorHandling) CMD {
 	f := &FlagSet{
 		name:          name,

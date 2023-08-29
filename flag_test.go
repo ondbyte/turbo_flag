@@ -16,6 +16,21 @@ import (
 	. "github.com/ondbyte/turbo_flag"
 )
 
+func TestIntVar(t *testing.T) {
+	t.Run("testInVar", func(t *testing.T) {
+		cmd := NewCmd("cmd", "", ContinueOnError)
+		a := -1
+		cmd.IntVar(&a, "a", -2, "")
+		err := cmd.Parse([]string{"--a", "5"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if a != 5 {
+			t.Fatal("a should be 5")
+		}
+	})
+}
+
 func Test_GetFirstSubCommandWithArgs(t *testing.T) {
 	type args struct {
 		args []string
