@@ -215,9 +215,13 @@ func TestFlagSet_BindCfg(t *testing.T) {
 			t.Fatalf("cfg [%v] file should exist", path)
 		}
 		password := fs.String("password", "", "", fs.Cfg("database.password"))
+		debug := fs.Bool("debug", false, "", fs.Cfg("database.debug"))
 
 		if *password != "12345" {
 			t.Fatal("expected password to be 12345")
+		}
+		if *debug != false {
+			t.Fatalf("expected debug to be false")
 		}
 	}
 	for _, ext := range []string{"json22", "yam2l", "ym2l", "tom2l"} {

@@ -42,9 +42,17 @@ func Test_jsonnify(t *testing.T) {
 		wantErr bool
 	}{
 		{
+			name: "empty string val",
+			args: args{
+				v: "",
+			},
+			want:    "",
+			wantErr: false,
+		},
+		{
 			name: "true",
 			args: args{
-				v: true,
+				v: "true",
 			},
 			want:    "true",
 			wantErr: false,
